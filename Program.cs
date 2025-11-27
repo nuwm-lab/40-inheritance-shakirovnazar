@@ -1,156 +1,270 @@
 using System;
 
-namespace LabWork4
+// Використовуємо один екземпляр Random для генерації випадкових чисел
+// Це запобігає отриманню однакових послідовностей.
+public static class GlobalRandom
 {
-    // Базовий клас: Система рівнянь (наприклад, квадратичних)
-    // Вигляд: a*x1^2 + b*x2 = c
-    class SystemOfEquations
+    public static readonly Random Random = new Random();
+}
+
+// ====================================================================
+// 1. АБСТРАКТНИЙ БАЗОВИЙ КЛАС
+// Визначає спільний інтерфейс для всіх типів матриць (2D, 3D і т.д.)
+// ====================================================================
+public abstract class MatrixBase
+{
+    // Забороняємо деструктор, як це прийнято у C# для класів без unmanaged ресурсів
+    // Визначення абстрактних методів, які мають бути реалізовані в похідних класах
+
+    /// <summary>Введення елементів матриці з клавіатури.</summary>
+    public abstract void SetFromKeyboard();
+
+    /// <summary>Заповнення матриці випадковими числами.</summary>
+    public abstract void SetRandom();
+
+    /// <summary>Пошук мінімального елемента в матриці.</summary>
+    public abstract double FindMin();
+
+    /// <summary>Отримання розмірності матриці (для виводу).</summary>
+    public abstract string GetDimensions();
+
+    /// <summary>Виведення матриці на консоль.</summary>
+    public abstract void Display();
+
+    /// <summary>
+    /// Допоміжний метод для безпечного введення числа типу double з клавіатури.
+    /// Винесено для чистоти коду, але по суті є частиною I/O логіки.
+    /// </summary>
+    protected double ReadDouble(string prompt)
     {
-        // Коефіцієнти для двох рівнянь
-        // Рівняння 1: a1*... + b1*... = c1
-        // Рівняння 2: a2*... + b2*... = c2
-        protected double a1, b1, c1;
-        protected double a2, b2, c2;
-
-        // Метод задання коефіцієнтів
-        public virtual void SetCoefficients()
+        Console.Write(prompt);
+        double value;
+        // Покращена валідація вводу: використовуємо double.TryParse
+        while (!double.TryParse(Console.ReadLine(), out value))
         {
-            Console.WriteLine("--- Введiть коефiцiєнти для Системи Рiвнянь (Base) ---");
-            Console.WriteLine("Рiвняння вигляду: a*x1^2 + b*x2 = c");
-            try
-            {
-                Console.Write("Рiвняння 1 (a1, b1, c1): ");
-                a1 = Convert.ToDouble(Console.ReadLine());
-                b1 = Convert.ToDouble(Console.ReadLine());
-                c1 = Convert.ToDouble(Console.ReadLine());
-
-                Console.Write("Рiвняння 2 (a2, b2, c2): ");
-                a2 = Convert.ToDouble(Console.ReadLine());
-                b2 = Convert.ToDouble(Console.ReadLine());
-                c2 = Convert.ToDouble(Console.ReadLine());
-            }
-            catch (FormatException)
-            {
-                Console.WriteLine("Помилка вводу. Використовуються нульовi значення.");
-            }
+            Console.WriteLine("Помилка вводу. Будь ласка, введіть дійсне число.");
+            Console.Write(prompt);
         }
+        return value;
+    }
+}
 
-        // Виведення системи на екран
-        public virtual void Show()
+// ====================================================================
+// 2. ПОХІДНИЙ КЛАС: ДВОВИМІРНА МАТРИЦЯ
+// ====================================================================
+public class Matrix2D : MatrixBase
+{
+    // Приватне поле для зберігання даних. Захищено інкапсуляцією.
+    private double[,] _data;
+    private const int N = 3; // Розмірність 3x3
+
+    // Конструктор: ініціалізує масив
+    public Matrix2D()
+    {
+        _data = new double[N, N];
+    }
+
+    // Реалізація абстрактного методу для вводу з клавіатури
+    public override void SetFromKeyboard()
+    {
+        Console.WriteLine($"Введення елементів матриці {N}x{N}:");
+        for (int i = 0; i < N; i++)
         {
-            Console.WriteLine("\nСистема рiвнянь (Квадратична):");
-            Console.WriteLine($"{a1}*x1^2 + {b1}*x2 = {c1}");
-            Console.WriteLine($"{a2}*x1^2 + {b2}*x2 = {c2}");
-        }
-
-        // Перевірка, чи задовольняє вектор X(x1, x2) системі
-        public virtual bool IsSatisfied(double x1, double x2)
-        {
-            // Перевіряємо з певною точністю (epsilon) для double
-            double epsilon = 0.0001;
-            
-            double res1 = a1 * x1 * x1 + b1 * x2;
-            double res2 = a2 * x1 * x1 + b2 * x2;
-
-            bool eq1 = Math.Abs(res1 - c1) < epsilon;
-            bool eq2 = Math.Abs(res2 - c2) < epsilon;
-
-            return eq1 && eq2;
+            for (int j = 0; j < N; j++)
+            {
+                // Використовуємо допоміжний метод для безпечного вводу
+                _data[i, j] = ReadDouble($"[{i}, {j}]: ");
+            }
         }
     }
 
-    // Похідний клас: СЛАР (Система Лінійних Алгебричних Рівнянь)
-    // Вигляд: a*x1 + b*x2 = c
-    class SLAE : SystemOfEquations
+    // Реалізація абстрактного методу для випадкового заповнення
+    public override void SetRandom()
     {
-        // Перевантаження методу задання коефіцієнтів
-        public override void SetCoefficients()
+        Console.WriteLine("Заповнення випадковими числами (від 0 до 100)...");
+        Random random = GlobalRandom.Random;
+        for (int i = 0; i < N; i++)
         {
-            Console.WriteLine("--- Введiть коефiцiєнти для СЛАР (Derived) ---");
-            Console.WriteLine("Рiвняння вигляду: a*x1 + b*x2 = c (Лiнiйнi)");
-            try
+            for (int j = 0; j < N; j++)
             {
-                Console.Write("Рiвняння 1 (a1, b1, c1): ");
-                a1 = Convert.ToDouble(Console.ReadLine());
-                b1 = Convert.ToDouble(Console.ReadLine());
-                c1 = Convert.ToDouble(Console.ReadLine());
-
-                Console.Write("Рiвняння 2 (a2, b2, c2): ");
-                a2 = Convert.ToDouble(Console.ReadLine());
-                b2 = Convert.ToDouble(Console.ReadLine());
-                c2 = Convert.ToDouble(Console.ReadLine());
+                // Генерація дійсного числа від 0 до 100
+                _data[i, j] = random.NextDouble() * 100;
             }
-            catch (FormatException)
-            {
-                Console.WriteLine("Помилка вводу.");
-            }
-        }
-
-        // Перевантаження виведення
-        public override void Show()
-        {
-            Console.WriteLine("\nСистема Лiнiйних Алгебричних Рiвнянь (СЛАР):");
-            Console.WriteLine($"{a1}*x1 + {b1}*x2 = {c1}");
-            Console.WriteLine($"{a2}*x1 + {b2}*x2 = {c2}");
-        }
-
-        // Перевантаження перевірки
-        public override bool IsSatisfied(double x1, double x2)
-        {
-            double epsilon = 0.0001;
-
-            // Лінійні рівняння: a*x1 + b*x2
-            double res1 = a1 * x1 + b1 * x2;
-            double res2 = a2 * x1 + b2 * x2;
-
-            bool eq1 = Math.Abs(res1 - c1) < epsilon;
-            bool eq2 = Math.Abs(res2 - c2) < epsilon;
-
-            return eq1 && eq2;
         }
     }
 
-    class Program
+    // Реалізація абстрактного методу для пошуку мінімального елемента
+    public override double FindMin()
     {
-        static void Main(string[] args)
+        // Ініціалізуємо мінімум першим елементом для коректного порівняння
+        double min = _data[0, 0]; 
+        for (int i = 0; i < N; i++)
         {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
-
-            // 1. Робота з базовим класом (Загальна система)
-            SystemOfEquations sys = new SystemOfEquations();
-            sys.SetCoefficients();
-            sys.Show();
-
-            Console.WriteLine("\nВведiть вектор X(x1, x2) для перевiрки базової системи:");
-            Console.Write("x1: ");
-            double x1 = Convert.ToDouble(Console.ReadLine());
-            Console.Write("x2: ");
-            double x2 = Convert.ToDouble(Console.ReadLine());
-
-            if (sys.IsSatisfied(x1, x2))
-                Console.WriteLine("Вектор ЗАДОВОЛЬНЯЄ систему рiвнянь.");
-            else
-                Console.WriteLine("Вектор НЕ задовольняє систему рiвнянь.");
-
-            Console.WriteLine(new string('-', 30));
-
-            // 2. Робота з похідним класом (СЛАР)
-            SLAE slae = new SLAE();
-            slae.SetCoefficients(); // Викличеться перевантажений метод
-            slae.Show();            // Викличеться перевантажений метод
-
-            Console.WriteLine("\nВведiть вектор X(x1, x2) для перевiрки СЛАР:");
-            Console.Write("x1: ");
-            x1 = Convert.ToDouble(Console.ReadLine());
-            Console.Write("x2: ");
-            x2 = Convert.ToDouble(Console.ReadLine());
-
-            if (slae.IsSatisfied(x1, x2)) // Викличеться перевантажений метод
-                Console.WriteLine("Вектор ЗАДОВОЛЬНЯЄ СЛАР.");
-            else
-                Console.WriteLine("Вектор НЕ задовольняє СЛАР.");
-
-            Console.ReadLine();
+            for (int j = 0; j < N; j++)
+            {
+                if (_data[i, j] < min)
+                {
+                    min = _data[i, j];
+                }
+            }
         }
+        return min;
+    }
+
+    // Виведення розмірності
+    public override string GetDimensions()
+    {
+        return $"Двовимірна матриця ({N}x{N})";
+    }
+
+    // Виведення матриці
+    public override void Display()
+    {
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                Console.Write($"{_data[i, j],8:F2} "); // Форматування для красивого виводу
+            }
+            Console.WriteLine();
+        }
+    }
+}
+
+// ====================================================================
+// 3. ПОХІДНИЙ КЛАС: ТРИВИМІРНА МАТРИЦЯ
+// ====================================================================
+public class Matrix3D : MatrixBase
+{
+    private double[,,] _data;
+    private const int N = 3; // Розмірність 3x3x3
+
+    // Конструктор: ініціалізує масив
+    public Matrix3D()
+    {
+        _data = new double[N, N, N];
+    }
+
+    // Перевизначення методу для вводу з клавіатури (3D)
+    public override void SetFromKeyboard()
+    {
+        Console.WriteLine($"Введення елементів матриці {N}x{N}x{N}:");
+        for (int k = 0; k < N; k++)
+        {
+            Console.WriteLine($"--- Слой [*, *, {k}] ---");
+            for (int i = 0; i < N; i++)
+            {
+                for (int j = 0; j < N; j++)
+                {
+                    _data[i, j, k] = ReadDouble($"[{i}, {j}, {k}]: ");
+                }
+            }
+        }
+    }
+
+    // Перевизначення методу для випадкового заповнення (3D)
+    public override void SetRandom()
+    {
+        Console.WriteLine("Заповнення випадковими числами (від 0 до 100)...");
+        Random random = GlobalRandom.Random;
+        for (int k = 0; k < N; k++)
+        {
+            for (int i = 0; i < N; i++)
+            {
+                for (int j = 0; j < N; j++)
+                {
+                    _data[i, j, k] = random.NextDouble() * 100;
+                }
+            }
+        }
+    }
+
+    // Перевизначення методу для пошуку мінімального елемента (3D)
+    public override double FindMin()
+    {
+        double min = _data[0, 0, 0];
+        for (int k = 0; k < N; k++)
+        {
+            for (int i = 0; i < N; i++)
+            {
+                for (int j = 0; j < N; j++)
+                {
+                    if (_data[i, j, k] < min)
+                    {
+                        min = _data[i, j, k];
+                    }
+                }
+            }
+        }
+        return min;
+    }
+
+    // Виведення розмірності
+    public override string GetDimensions()
+    {
+        return $"Тривимірна матриця ({N}x{N}x{N})";
+    }
+
+    // Виведення матриці (3D)
+    public override void Display()
+    {
+        for (int k = 0; k < N; k++)
+        {
+            Console.WriteLine($"\nСлой {k}:");
+            for (int i = 0; i < N; i++)
+            {
+                for (int j = 0; j < N; j++)
+                {
+                    Console.Write($"{_data[i, j, k],8:F2} ");
+                }
+                Console.WriteLine();
+            }
+        }
+    }
+}
+
+// ====================================================================
+// 4. ОСНОВНА ПРОГРАМА (ТОЧКА ВХОДУ)
+// Демонструє поліморфізм
+// ====================================================================
+class Program
+{
+    static void Main()
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.WriteLine("--- Лабораторна робота: Масиви об'єктів та Наслідування (Матриці) ---");
+
+        // Демонстрація двовимірної матриці (2D)
+        Matrix2D matrix2D = new Matrix2D();
+        Console.WriteLine("\n=======================================================");
+        Console.WriteLine($"1. Робота з {matrix2D.GetDimensions()}");
+        Console.WriteLine("=======================================================");
+
+        // Заповнення випадковими числами
+        matrix2D.SetRandom();
+        Console.WriteLine("\nМатриця після випадкового заповнення:");
+        matrix2D.Display();
+        Console.WriteLine($"Мінімальний елемент: {matrix2D.FindMin():F2}");
+
+        // Приклад введення з клавіатури (можна закоментувати, якщо не потрібне інтерактивне введення)
+        // matrix2D.SetFromKeyboard();
+        // Console.WriteLine("\nМатриця після введення з клавіатури:");
+        // matrix2D.Display();
+        // Console.WriteLine($"Мінімальний елемент: {matrix2D.FindMin():F2}");
+        
+
+        // Демонстрація тривимірної матриці (3D)
+        Matrix3D matrix3D = new Matrix3D();
+        Console.WriteLine("\n=======================================================");
+        Console.WriteLine($"2. Робота з {matrix3D.GetDimensions()}");
+        Console.WriteLine("=======================================================");
+
+        // Заповнення випадковими числами
+        matrix3D.SetRandom();
+        Console.WriteLine("\nМатриця після випадкового заповнення:");
+        matrix3D.Display();
+        Console.WriteLine($"\nМінімальний елемент: {matrix3D.FindMin():F2}");
+        
+        Console.ReadKey();
     }
 }
