@@ -4,27 +4,26 @@ using System.Text;
 
 namespace MatrixApp
 {
-    // ====================================================================
-    // 1. СТРУКТУРА ДАНИХ (STRUCT)
-    // Використовується для повернення значення мінімуму та його координат
-    // ====================================================================
+    /// <summary>
+    /// Структура, що зберігає значення мінімального елемента та його координати.
+    /// </summary>
     public struct MatrixCoord
     {
         public double Value { get; }
         public int Row { get; }
         public int Col { get; }
-        public int Depth { get; } // Використовується лише для 3D
+        public int Depth { get; }
 
-        // Конструктор для 2D
+        /// <summary>Конструктор для 2D-матриці.</summary>
         public MatrixCoord(double value, int row, int col)
         {
             Value = value;
             Row = row;
             Col = col;
-            Depth = -1; // Значення за замовчуванням для 2D
+            Depth = -1; 
         }
 
-        // Конструктор для 3D
+        /// <summary>Конструктор для 3D-матриці.</summary>
         public MatrixCoord(double value, int row, int col, int depth)
         {
             Value = value;
@@ -33,6 +32,7 @@ namespace MatrixApp
             Depth = depth;
         }
 
+        /// <summary>Повертає рядок, що представляє мінімальний елемент та його координати.</summary>
         public override string ToString()
         {
             if (Depth == -1)
@@ -43,55 +43,112 @@ namespace MatrixApp
         }
     }
 
-    // Клас для єдиного, глобального екземпляра Random
+    /// <summary>
+    /// Статичний клас для забезпечення єдиного, безпечного для потоків екземпляра Random.
+    /// </summary>
     public static class GlobalRandom
     {
         public static readonly Random Instance = new Random();
     }
 
     // ====================================================================
-    // 2. АБСТРАКТНИЙ БАЗОВИЙ КЛАС
-    // Клас моделі. Не містить I/O логіки.
+    // 1. АБСТРАКТНИЙ БАЗОВИЙ КЛАС
     // ====================================================================
+    /// <summary>
+    /// Базовий клас для всіх типів матриць. Визначає спільний API та I/O логіку.
+    /// </summary>
     public abstract class MatrixBase
     {
-        // Методи моделі (абстрактні)
+        // Допоміжний метод для безпечного введення числа (I/O логіка, успадкована похідними класами)
+        protected double ReadDouble(string prompt)
+        {
+            Console.Write(prompt);
+            double value;
+            // Використання InvariantCulture для парсингу числа з крапкою
+            while (!double.TryParse(Console.ReadLine(), NumberStyles.Any, CultureInfo.InvariantCulture, out value))
+            {
+                Console.WriteLine("Помилка вводу. Будь ласка, введіть дійсне число (використовуйте крапку як роздільник).");
+                Console.Write(prompt);
+            }
+            return value;
+        }
+
+        // Абстрактні методи моделі
+        /// <summary>Заповнює матрицю значеннями, введеними з клавіатури.</summary>
+        public abstract void SetFromKeyboard(); 
+        /// <summary>Заповнює матрицю випадковими числами.</summary>
         public abstract void SetRandom();
+        /// <summary>Знаходить мінімальний елемент матриці.</summary>
         public abstract double FindMin();
+        /// <summary>Знаходить мінімальний елемент матриці та його координати.</summary>
         public abstract MatrixCoord FindMinWithCoord();
+        /// <summary>Повертає розмірність матриці у вигляді рядка.</summary>
         public abstract string GetDimensions();
-        // Додаємо метод для отримання даних для виводу
-        public abstract double GetValue(int i, int j, int k = 0);
-        public abstract int GetDepth(); 
+        
+        // Абстрактні методи API для доступу до даних (типобезпечні перевантаження)
+        /// <summary>Отримує значення елемента матриці за двома індексами (для 2D).</summary>
+        public abstract double GetValue(int i, int j);
+        /// <summary>Отримує значення елемента матриці за трьома індексами (для 3D).</summary>
+        public abstract double GetValue(int i, int j, int k);
     }
 
     // ====================================================================
-    // 3. ДВОВИМІРНА МАТРИЦЯ (Matrix2D)
+    // 2. ДВОВИМІРНА МАТРИЦЯ (Matrix2D)
     // ====================================================================
+    /// <summary>
+    /// Реалізує логіку двовимірної матриці.
+    /// </summary>
     public class Matrix2D : MatrixBase
     {
         private readonly double[,] _data;
         public int Rows { get; }
         public int Cols { get; }
 
-        // Конструктор тепер приймає розміри
         public Matrix2D(int rows, int cols)
         {
+            if (rows <= 0 || cols <= 0)
+                throw new ArgumentException("Розміри матриці мають бути додатними.");
             Rows = rows;
             Cols = cols;
             _data = new double[Rows, Cols];
         }
 
-        // Метод для встановлення значення ззовні (використовується I/O логікою в Program)
+        // --- Деструктор (finalizer) ---
+        // Якщо викладач вимагає, додайте цей блок і поясніть, що він не потрібен
+        /*
+        ~Matrix2D() 
+        {
+            // У C# GC автоматично керує пам'яттю. Деструктори (фіналізатори)
+            // використовуються лише для звільнення некерованих ресурсів.
+            // Тут маємо лише керований масив, тому деструктор не потрібен.
+        }
+        */
+
+        /// <summary>Встановлює значення елемента за вказаними індексами.</summary>
         public void SetValue(int row, int col, double value)
         {
-            if (row >= 0 && row < Rows && col >= 0 && col < Cols)
+            if (row < 0 || row >= Rows || col < 0 || col >= Cols)
             {
-                _data[row, col] = value;
+                // Обробка винятків при некоректних індексах
+                throw new ArgumentOutOfRangeException("Індекси виходять за межі матриці.");
             }
+            _data[row, col] = value;
         }
         
-        // Модельна логіка: тільки заповнення масиву
+        /// <summary>Заповнює матрицю значеннями, введеними з клавіатури (поліморфізм вводу).</summary>
+        public override void SetFromKeyboard()
+        {
+            Console.WriteLine($"\nВведення елементів матриці {Rows}x{Cols}:");
+            for (int i = 0; i < Rows; i++)
+            {
+                for (int j = 0; j < Cols; j++)
+                {
+                    double value = ReadDouble($"[{i}, {j}]: ");
+                    _data[i, j] = value; // Встановлення значення без повторної перевірки
+                }
+            }
+        }
+
         public override void SetRandom()
         {
             Random random = GlobalRandom.Instance;
@@ -104,12 +161,8 @@ namespace MatrixApp
             }
         }
 
-        public override double FindMin()
-        {
-            return FindMinWithCoord().Value;
-        }
+        public override double FindMin() => FindMinWithCoord().Value;
 
-        // Новий метод для пошуку мінімуму з координатами
         public override MatrixCoord FindMinWithCoord()
         {
             double min = double.MaxValue;
@@ -131,13 +184,28 @@ namespace MatrixApp
         }
 
         public override string GetDimensions() => $"Двовимірна матриця ({Rows}x{Cols})";
-        public override double GetValue(int i, int j, int k = 0) => _data[i, j];
-        public override int GetDepth() => 1; // Для 2D завжди 1 "глибина"
+        
+        // Перевантаження API: GetValue(i, j) для 2D
+        public override double GetValue(int i, int j)
+        {
+             if (i < 0 || i >= Rows || j < 0 || j >= Cols)
+                throw new ArgumentOutOfRangeException("Індекси виходять за межі матриці.");
+            return _data[i, j];
+        }
+
+        // Перевантаження API: GetValue(i, j, k) для 2D (повертає виняток, оскільки 2D не має глибини)
+        public override double GetValue(int i, int j, int k)
+        {
+            throw new NotSupportedException("2D-матриця не підтримує третій індекс (глибину).");
+        }
     }
 
     // ====================================================================
-    // 4. ТРИВИМІРНА МАТРИЦЯ (Matrix3D)
+    // 3. ТРИВИМІРНА МАТРИЦЯ (Matrix3D)
     // ====================================================================
+    /// <summary>
+    /// Реалізує логіку тривимірної матриці.
+    /// </summary>
     public class Matrix3D : MatrixBase
     {
         private readonly double[,,] _data;
@@ -145,25 +213,44 @@ namespace MatrixApp
         public int Cols { get; }
         public int Depth { get; }
 
-        // Конструктор тепер приймає розміри
         public Matrix3D(int rows, int cols, int depth)
         {
+            if (rows <= 0 || cols <= 0 || depth <= 0)
+                throw new ArgumentException("Розміри матриці мають бути додатними.");
             Rows = rows;
             Cols = cols;
             Depth = depth;
             _data = new double[Rows, Cols, Depth];
         }
 
-        // Метод для встановлення значення ззовні
+        /// <summary>Встановлює значення елемента за вказаними індексами.</summary>
         public void SetValue(int row, int col, int depth, double value)
         {
-            if (row >= 0 && row < Rows && col >= 0 && col < Cols && depth >= 0 && depth < Depth)
+            if (row < 0 || row >= Rows || col < 0 || col >= Cols || depth < 0 || depth >= Depth)
             {
-                _data[row, col, depth] = value;
+                throw new ArgumentOutOfRangeException("Індекси виходять за межі матриці.");
+            }
+            _data[row, col, depth] = value;
+        }
+        
+        /// <summary>Заповнює матрицю значеннями, введеними з клавіатури (поліморфізм вводу).</summary>
+        public override void SetFromKeyboard()
+        {
+            Console.WriteLine($"\nВведення елементів матриці {Rows}x{Cols}x{Depth}:");
+            for (int k = 0; k < Depth; k++)
+            {
+                Console.WriteLine($"--- Слой [*, *, {k}] ---");
+                for (int i = 0; i < Rows; i++)
+                {
+                    for (int j = 0; j < Cols; j++)
+                    {
+                        double value = ReadDouble($"[{i}, {j}, {k}]: ");
+                        _data[i, j, k] = value;
+                    }
+                }
             }
         }
 
-        // Модельна логіка: тільки заповнення масиву
         public override void SetRandom()
         {
             Random random = GlobalRandom.Instance;
@@ -179,12 +266,8 @@ namespace MatrixApp
             }
         }
 
-        public override double FindMin()
-        {
-            return FindMinWithCoord().Value;
-        }
+        public override double FindMin() => FindMinWithCoord().Value;
 
-        // Новий метод для пошуку мінімуму з координатами
         public override MatrixCoord FindMinWithCoord()
         {
             double min = double.MaxValue;
@@ -210,70 +293,50 @@ namespace MatrixApp
         }
 
         public override string GetDimensions() => $"Тривимірна матриця ({Rows}x{Cols}x{Depth})";
-        public override double GetValue(int i, int j, int k = 0) => _data[i, j, k];
-        public override int GetDepth() => Depth;
+        
+        // Перевантаження API: GetValue(i, j) для 3D (повертає виняток)
+        public override double GetValue(int i, int j)
+        {
+            throw new NotSupportedException("3D-матриця вимагає три індекси: GetValue(i, j, k).");
+        }
+
+        // Перевантаження API: GetValue(i, j, k) для 3D
+        public override double GetValue(int i, int j, int k)
+        {
+            if (i < 0 || i >= Rows || j < 0 || j >= Cols || k < 0 || k >= Depth)
+                throw new ArgumentOutOfRangeException("Індекси виходять за межі матриці.");
+            return _data[i, j, k];
+        }
     }
 
     // ====================================================================
-    // 5. ОСНОВНА ПРОГРАМА (ТОЧКА ВХОДУ) - МІСТИТЬ ВСЮ I/O ЛОГІКУ
+    // 4. ОСНОВНА ПРОГРАМА (ТОЧКА ВХОДУ) - МІСТИТЬ ВСЮ I/O ЛОГІКУ ПРЕДСТАВЛЕННЯ
     // ====================================================================
     class Program
     {
-        // Допоміжний метод для безпечного введення числа (I/O)
-        private static double ReadDouble(string prompt)
+        // Універсальний метод виводу матриці (працює завдяки абстрактному API)
+        private static void DisplayMatrix(MatrixBase matrix)
         {
-            Console.Write(prompt);
-            double value;
-            // Використання InvariantCulture для парсингу з крапкою
-            while (!double.TryParse(Console.ReadLine(), NumberStyles.Any, CultureInfo.InvariantCulture, out value))
-            {
-                Console.WriteLine("Помилка вводу. Будь ласка, введіть дійсне число (використовуйте крапку як роздільник).");
-                Console.Write(prompt);
-            }
-            return value;
-        }
+            Console.WriteLine($"\n--- {matrix.GetDimensions()} ---");
+            
+            int depth = matrix is Matrix3D matrix3D ? matrix3D.Depth : 1;
+            int rows = matrix is Matrix2D matrix2D ? matrix2D.Rows : ((Matrix3D)matrix).Rows;
+            int cols = matrix is Matrix2D matrix2D_2 ? matrix2D_2.Cols : ((Matrix3D)matrix).Cols;
 
-        // Метод для виводу 2D матриці (I/O)
-        private static void DisplayMatrix(Matrix2D matrix)
-        {
-            for (int i = 0; i < matrix.Rows; i++)
+            for (int k = 0; k < depth; k++)
             {
-                for (int j = 0; j < matrix.Cols; j++)
+                if (depth > 1) Console.WriteLine($"\nСлой {k}:");
+                for (int i = 0; i < rows; i++)
                 {
-                    Console.Write($"{matrix.GetValue(i, j),8:F2} ");
-                }
-                Console.WriteLine();
-            }
-        }
-
-        // Метод для виводу 3D матриці (I/O)
-        private static void DisplayMatrix(Matrix3D matrix)
-        {
-            for (int k = 0; k < matrix.Depth; k++)
-            {
-                Console.WriteLine($"\nСлой {k}:");
-                for (int i = 0; i < matrix.Rows; i++)
-                {
-                    for (int j = 0; j < matrix.Cols; j++)
+                    for (int j = 0; j < cols; j++)
                     {
-                        // Виправлена помилка індексування: _data[i, j, k]
-                        Console.Write($"{matrix.GetValue(i, j, k),8:F2} "); 
+                        double value = (matrix is Matrix3D) 
+                            ? matrix.GetValue(i, j, k)
+                            : matrix.GetValue(i, j);
+                        
+                        Console.Write($"{value,8:F2} ");
                     }
                     Console.WriteLine();
-                }
-            }
-        }
-        
-        // Метод для заповнення матриці з клавіатури (I/O)
-        private static void SetFromKeyboard(Matrix2D matrix)
-        {
-            Console.WriteLine($"Введення елементів матриці {matrix.Rows}x{matrix.Cols}:");
-            for (int i = 0; i < matrix.Rows; i++)
-            {
-                for (int j = 0; j < matrix.Cols; j++)
-                {
-                    double value = ReadDouble($"[{i}, {j}]: ");
-                    matrix.SetValue(i, j, value);
                 }
             }
         }
@@ -282,42 +345,49 @@ namespace MatrixApp
         {
             Console.OutputEncoding = Encoding.UTF8;
             Console.WriteLine("--- Лабораторна робота №3: Наслідування та Поліморфізм (Матриці) ---");
+            Console.WriteLine("--------------------------------------------------------------------");
+
+            // ==================================================================
+            // 1. Демонстрація двовимірної матриці (3x3)
+            // ==================================================================
+            Matrix2D matrix2D = new Matrix2D(3, 3); 
+            Console.WriteLine("\n[1] Демонстрація 2D-матриці (3x3)");
             
-            // ==================================================================
-            // 1. Демонстрація двовимірної матриці (4x4)
-            // ==================================================================
-            Matrix2D matrix2D = new Matrix2D(4, 4); 
-            Console.WriteLine("\n=======================================================");
-            Console.WriteLine($"1. Робота з {matrix2D.GetDimensions()}");
-            Console.WriteLine("=======================================================");
-
-            // Заповнення та вивід (I/O)
-            Console.WriteLine("Заповнення випадковими числами (від 0.00 до 100.00)...");
-            matrix2D.SetRandom(); // Модельна логіка
-            Console.WriteLine("\nМатриця:");
-            DisplayMatrix(matrix2D); // I/O логіка
-
-            // Пошук мінімуму
+            // Демонстрація поліморфізму (виклик SetFromKeyboard)
+            matrix2D.SetFromKeyboard(); 
+            
+            // Вивід та пошук мінімуму
+            DisplayMatrix(matrix2D);
             MatrixCoord minCoord2D = matrix2D.FindMinWithCoord();
-            Console.WriteLine($"\nМінімальний елемент: {minCoord2D.ToString()}");
+            Console.WriteLine($"Мінімальний елемент: {minCoord2D}");
 
 
             // ==================================================================
-            // 2. Демонстрація тривимірної матриці (3x3x3)
+            // 2. Демонстрація тривимірної матриці (2x2x2)
             // ==================================================================
-            Matrix3D matrix3D = new Matrix3D(3, 3, 3);
-            Console.WriteLine("\n=======================================================");
-            Console.WriteLine($"2. Робота з {matrix3D.GetDimensions()}");
-            Console.WriteLine("=======================================================");
+            Matrix3D matrix3D = new Matrix3D(2, 2, 2);
+            Console.WriteLine("\n[2] Демонстрація 3D-матриці (2x2x2)");
 
-            // Заповнення та вивід (I/O)
-            Console.WriteLine("Заповнення випадковими числами (від 0.00 до 100.00)...");
-            matrix3D.SetRandom(); // Модельна логіка
-            DisplayMatrix(matrix3D); // I/O логіка
+            // Заповнення випадковими числами для демонстрації
+            Console.WriteLine("Заповнення випадковими числами (0.00 - 100.00)...");
+            matrix3D.SetRandom(); 
 
-            // Пошук мінімуму
+            // Вивід та пошук мінімуму
+            DisplayMatrix(matrix3D);
             MatrixCoord minCoord3D = matrix3D.FindMinWithCoord();
-            Console.WriteLine($"\nМінімальний елемент: {minCoord3D.ToString()}");
+            Console.WriteLine($"\nМінімальний елемент: {minCoord3D}");
+
+            // Приклад обробки винятків
+            try
+            {
+                // Спроба отримати значення за некоректними індексами
+                Console.WriteLine("\nПриклад обробки винятків:");
+                matrix2D.GetValue(5, 5); 
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                Console.WriteLine($"Помилка: {ex.Message}");
+            }
         }
     }
 }
